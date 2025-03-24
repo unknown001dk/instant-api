@@ -1,0 +1,155 @@
+/* Document Page Styles */
+.document-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 30px;
+  background: linear-gradient(135deg, #ffffff, #f7f9fc);
+  border-radius: 10px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  font-family: 'Roboto', sans-serif;
+  color: #2c3e50;
+  line-height: 1.8;
+}
+
+/* Header Section */
+.document-header {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.document-header h1 {
+  font-size: 40px;
+  color: #4a90e2;
+  margin-bottom: 15px;
+  font-weight: bold;
+  letter-spacing: 1px;
+}
+
+.document-header p {
+  font-size: 18px;
+  color: #7f8c8d;
+  font-style: italic;
+}
+
+/* Section Styles */
+.document-section {
+  margin-bottom: 50px;
+  padding: 20px;
+  background: #ffffff;
+  border: 1px solid #e1e8ed;
+  border-radius: 8px;
+  transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.document-section:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 6px 15px rgba(0, 0, 0, 0.1);
+}
+
+.document-section h2 {
+  font-size: 26px;
+  color: #34495e;
+  margin-bottom: 15px;
+  border-bottom: 3px solid #f39c12;
+  display: inline-block;
+  padding-bottom: 5px;
+}
+
+.document-section p {
+  font-size: 16px;
+  color: #7f8c8d;
+}
+
+.document-section ul {
+  list-style-type: disc;
+  padding-left: 25px;
+}
+
+.document-section li {
+  font-size: 16px;
+  color: #34495e;
+  margin-bottom: 8px;
+}
+
+.document-section ol {
+  list-style-type: decimal;
+  padding-left: 25px;
+}
+
+.document-section ol li {
+  font-size: 16px;
+  color: #34495e;
+  margin-bottom: 10px;
+}
+
+/* Code Block */
+.document-section code {
+  display: block;
+  background: #2c3e50;
+  color: #ecf0f1;
+  padding: 15px;
+  font-size: 16px;
+  font-family: 'Courier New', Courier, monospace;
+  border-radius: 8px;
+  margin-top: 10px;
+  white-space: pre-wrap;
+  line-height: 1.5;
+  overflow-x: auto;
+}
+
+/* Footer Styles */
+.document-footer {
+  text-align: center;
+  padding-top: 30px;
+  font-size: 14px;
+  color: #bdc3c7;
+  border-top: 1px solid #ecf0f1;
+}
+
+.document-footer p {
+  margin-top: 10px;
+}
+
+/* Button Styles */
+button {
+  display: inline-block;
+  background: #3498db;
+  color: #fff;
+  padding: 10px 20px;
+  font-size: 16px;
+  font-weight: bold;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.1);
+  transition: background 0.3s, transform 0.2s;
+}
+
+button:hover {
+  background: #2980b9;
+  transform: translateY(-2px);
+}
+
+/* Responsive Styles */
+@media (max-width: 768px) {
+  .document-container {
+    padding: 20px;
+  }
+
+  .document-header h1 {
+    font-size: 32px;
+  }
+
+  .document-section h2 {
+    font-size: 22px;
+  }
+
+  .document-section p,
+  .document-section li {
+    font-size: 14px;
+  }
+
+  .document-footer p {
+    font-size: 12px;
+  }
+}
