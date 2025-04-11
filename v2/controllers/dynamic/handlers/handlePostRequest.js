@@ -1,21 +1,36 @@
-import mongoose from "mongoose";
+import { decryptPassword, encryptPassword } from "../utils/secure.js";
 
-export const handlePostRequest = async ({ req, res, DynamicModel }) => {
+export const handlePostRequest = async ({ req, res, DynamicModel, schemaData }) => {
   try {
     const body = req.body;
+    console.log(body)
     const schemaPaths = DynamicModel.schema.paths;
+
+    for (const filed of schemaData.schemaDefinition) {
+      const { name, secure, secretKey } = filed;
+      console.log(name, secure, secretKey)
+      // const encryptedKey = decryptPassword(secretKey);
+      // console.log(encryptedKey)
+      console.log(secure)
+      if(body[name]) {
+        if(secure) {
+          body[name] = encryptPassword(body[name], secretKey)
+        }
+      }
+    }
 
     const validationErrors = [];
 
-    // 1. Check for required fields
+    // Check for required fields
     for (const field in schemaPaths) {
       const path = schemaPaths[field];
+      // console.log(path)
       if (path.isRequired && !body[field]) {
         validationErrors.push(`${field} is required`);
       }
     }
 
-    // 2. Setup inferred regex patterns (fallbacks)
+    // Setup inferred regex patterns (fallbacks)
     const inferredRegexPatterns = [
       {
         keyword: "email",
@@ -44,21 +59,23 @@ export const handlePostRequest = async ({ req, res, DynamicModel }) => {
       },
     ];
 
-    // 3. Apply custom or inferred regex
+    // Apply custom or inferred regex
     for (const field in schemaPaths) {
       const path = schemaPaths[field];
+      // console.log(path)
       const value = body[field];
       if (!value) continue;
 
-      // 3.1 Check if user provided custom regex via "match" and "message"
+      // Check if user provided custom regex via "match" and "message"
       const customRegexValidator = path.validators?.find((v) => v.type === "regexp");
+      // console.log(customRegexValidator)
 
       if (customRegexValidator) {
         if (!customRegexValidator.regexp.test(value)) {
           validationErrors.push(`${field}: ${customRegexValidator.message || "Invalid format"}`);
         }
       } else {
-        // 3.2 Use inferred validation if custom not available
+        // Use inferred validation if custom not available
         for (const { keyword, pattern, message } of inferredRegexPatterns) {
           if (field.toLowerCase().includes(keyword)) {
             if (!pattern.test(value)) {
@@ -69,7 +86,7 @@ export const handlePostRequest = async ({ req, res, DynamicModel }) => {
       }
     }
 
-    // 4. Return if validation failed
+    // Return if validation failed
     if (validationErrors.length > 0) {
       return res.status(400).json({
         success: false,
@@ -78,7 +95,9 @@ export const handlePostRequest = async ({ req, res, DynamicModel }) => {
       });
     }
 
-    // 5. Create document
+    
+
+    // Create document
     const result = await DynamicModel.create(req.body);
     return res.status(201).json({ success: true, result });
 

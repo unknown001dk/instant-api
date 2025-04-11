@@ -15,10 +15,6 @@ const schemaModel = new mongoose.Schema(
       type: Array,
       required: true,
     },
-    projectName: {
-      type: String,
-      required: true,
-    }
   },
   {
     timestamps: true,

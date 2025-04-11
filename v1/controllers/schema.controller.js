@@ -3,16 +3,15 @@ import Schema from "../models/schema.model.js";
 import asyncHandler from "express-async-handler";
 import MongoURI from "../models/mongo.model.js";
 import { Types } from "mongoose";
-import { encryption } from "../utils/encrypt.js";
 
 class APIController {
   // Create a new schema dynamically
   createSchema = asyncHandler(async (req, res) => {
-    const { name, userId, fields, projectName } = req.body;
+    const { name, userId, fields } = req.body;
   
     try {
       // Validate input
-      if (!name || !userId || !fields || !projectName) {
+      if (!name || !userId || !fields) {
         return res.status(400).json({
           message: "Missing required fields",
           success: false,
@@ -20,25 +19,23 @@ class APIController {
       }
   
       // Check if schema with the same name and userId already exists
-      const schemaExists = await Schema.findOne({ name, userId, projectName });
+      const schemaExists = await Schema.findOne({ name, userId });
       if (schemaExists) {
         return res.status(409).json({
           message: "Schema with this name already exists for the given user",
           success: false,
         });
-      } 
+      }
   
       // Create a new schema model
       const schema = new Schema({
         name,
         userId,
-        projectName,
         schemaDefinition: fields,
       });
   
       // Generate the dynamic URL
-      const encryptedUrl = encryption(userId)
-      const url = `http://localhost:8081/api/v1/dynamic/${schema.name}/${schema.projectName}/${encryptedUrl}`;
+      const url = `http://localhost:8081/api/v1/dynamic/${schema.name}/${schema.userId}`;
   
       // Save the schema to the database
       await schema.save();

@@ -86,13 +86,26 @@ export const handleGetRequest = async ({
           .join(" ")
       : "-password";
 
-    const result = documentId
-      ? await DynamicModel.findById(documentId).select("-password")
-      : await DynamicModel.find(queryFilter)
+    // Automatically detect refs from schema paths
+    const refFields = Object.entries(DynamicModel.schema.paths)
+      .filter(([key, path]) => path.options?.ref)
+      .map(([key]) => key);
+ 
+    const populateFields = refFields.join(" ");
+
+    const query = documentId
+      ? DynamicModel.findById(documentId).select("-password")
+      : DynamicModel.find(queryFilter)
           .select(fieldsToSelect)
           .sort(sort || "-createdAt")
           .skip(skip)
           .limit(limitNum);
+
+    if (populateFields) {
+      query.populate(populateFields);
+    }
+
+    const result = await query;
 
     const totalCount = documentId
       ? result

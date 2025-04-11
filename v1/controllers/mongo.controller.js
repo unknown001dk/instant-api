@@ -37,6 +37,8 @@ class ModalController {
         });
       }
 
+      // console.log(userId, projectName, atlasURI, localURI)
+
       // Create a new project entry
       const project = new MongoUri({
         userId,

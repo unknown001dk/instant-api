@@ -1,12 +1,15 @@
-import React, { useState } from 'react';
-import axios from 'axios';
-import './Register.css'; // Import the CSS file
-import { NotificationError, NotificationSucess } from '../../utils/Notification';
+import React, { useState } from "react";
+import axios from "axios";
+import "./Register.css"; // Import the CSS file
+import {
+  NotificationError,
+  NotificationSucess,
+} from "../../utils/Notification";
 
 function Register() {
-  const [email, setEmail] = useState('');
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
 
   const handleRegister = async (e) => {
     e.preventDefault();
@@ -18,13 +21,23 @@ function Register() {
 
     try {
       if (!email || !password || !username) {
-        return NotificationError("Register failed", "Please fill in all fields");
+        return NotificationError(
+          "Register failed",
+          "Please fill in all fields"
+        );
       }
-      await axios.post('http://localhost:8081/api/v1/users/register', { email, password, username });
-      NotificationSucess("Register","Successfully registered")
-      window.location.href = '/'; // Redirect to login page after successful registration
+      const response = await axios.post(
+        "http://localhost:8081/api/v1/users/register",
+        { email, password, username }
+      );
+      console.log(response);
+
+      NotificationSucess("Register", "Successfully registered");
+      // setTimeout(() => {
+      // }, 500);
+      window.location.href = "/"; // Redirect to login page after successful registration
     } catch (error) {
-      console.error('Registration error:', error);
+      console.error("Registration error:", error);
       NotificationError("Registration error", "Registration failed");
     }
   };
@@ -53,7 +66,9 @@ function Register() {
         />
         <button type="submit">Register</button>
       </form>
-      <p>Already have an account? <a href="/login">Login here</a></p>
+      <p>
+        Already have an account? <a href="/login">Login here</a>
+      </p>
     </div>
   );
 }
