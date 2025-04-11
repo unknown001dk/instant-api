@@ -94,6 +94,9 @@ export const createSchema = asyncHandler(async (req, res) => {
   const updatedFields = fields.map(field => ({
     name: field.name,
     type: field.type,
+    unique: field.unique,
+    message: field.message || '',
+    match: field.match || '',
     required: field.required,
     secure: field.secure,
     secretKey: field.secretKey ? encryption(field.secretKey) : null

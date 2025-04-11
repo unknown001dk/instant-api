@@ -3,106 +3,123 @@ import { decryptPassword, encryptPassword } from "../utils/secure.js";
 export const handlePostRequest = async ({ req, res, DynamicModel, schemaData }) => {
   try {
     const body = req.body;
-    console.log(body)
+    const action = req.query.action || "register"; // use query param ?action=login
+
     const schemaPaths = DynamicModel.schema.paths;
 
-    for (const filed of schemaData.schemaDefinition) {
-      const { name, secure, secretKey } = filed;
-      console.log(name, secure, secretKey)
-      // const encryptedKey = decryptPassword(secretKey);
-      // console.log(encryptedKey)
-      console.log(secure)
-      if(body[name]) {
-        if(secure) {
-          body[name] = encryptPassword(body[name], secretKey)
+    // Extract secure fields from schema
+    const secureFields = schemaData.schemaDefinition.filter(field => field.secure);
+
+    if (action === "login") {
+      console.log(schemaData.schemaDefinition)
+      // Find user by a unique identifier (e.g. email or username)
+      const identifierField = schemaData.schemaDefinition.find(f => f.unique);
+      console.log(identifierField)
+      if (!identifierField || !body[identifierField.name]) {
+        return res.status(400).json({ success: false, message: "Missing login identifier." });
+      }
+
+      const user = await DynamicModel.findOne({ [identifierField.name]: body[identifierField.name] });
+      if (!user) {
+        return res.status(404).json({ success: false, message: "User not found." });
+      }
+
+      // Decrypt and compare secure fields (e.g., password)
+      for (const { name, secure, secretKey } of secureFields) {
+        const storedEncrypted = user[name];
+        const inputRaw = body[name];
+
+        const decryptedStored = decryptPassword(storedEncrypted, secretKey);
+
+        if (decryptedStored !== inputRaw) {
+          return res.status(401).json({ success: false, message: `${name} is incorrect.` });
         }
       }
-    }
 
-    const validationErrors = [];
+      return res.status(200).json({ success: true, message: "Login successful", user });
 
-    // Check for required fields
-    for (const field in schemaPaths) {
-      const path = schemaPaths[field];
-      // console.log(path)
-      if (path.isRequired && !body[field]) {
-        validationErrors.push(`${field} is required`);
-      }
-    }
+    } else {
+      // Register logic
 
-    // Setup inferred regex patterns (fallbacks)
-    const inferredRegexPatterns = [
-      {
-        keyword: "email",
-        pattern: /^[\w.-]+@[\w.-]+\.\w{2,4}$/,
-        message: "Invalid email address",
-      },
-      {
-        keyword: "phone",
-        pattern: /^[6-9]\d{9}$/,
-        message: "Invalid phone number",
-      },
-      {
-        keyword: "url",
-        pattern: /^(https?|ftp):\/\/[^\s/$.?#].[^\s]*$/,
-        message: "Invalid URL",
-      },
-      {
-        keyword: "name",
-        pattern: /^[a-zA-Z ]{2,30}$/,
-        message: "Invalid name format",
-      },
-      {
-        keyword: "username",
-        pattern: /^[a-zA-Z0-9_]{3,20}$/,
-        message: "Invalid username format",
-      },
-    ];
-
-    // Apply custom or inferred regex
-    for (const field in schemaPaths) {
-      const path = schemaPaths[field];
-      // console.log(path)
-      const value = body[field];
-      if (!value) continue;
-
-      // Check if user provided custom regex via "match" and "message"
-      const customRegexValidator = path.validators?.find((v) => v.type === "regexp");
-      // console.log(customRegexValidator)
-
-      if (customRegexValidator) {
-        if (!customRegexValidator.regexp.test(value)) {
-          validationErrors.push(`${field}: ${customRegexValidator.message || "Invalid format"}`);
+      for (const { name, secure, secretKey } of secureFields) {
+        if (body[name]) {
+          body[name] = encryptPassword(body[name], secretKey);
         }
-      } else {
-        // Use inferred validation if custom not available
-        for (const { keyword, pattern, message } of inferredRegexPatterns) {
-          if (field.toLowerCase().includes(keyword)) {
-            if (!pattern.test(value)) {
-              validationErrors.push(`${field}: ${message}`);
+      }
+
+      const validationErrors = [];
+
+      // Required fields
+      for (const field in schemaPaths) {
+        const path = schemaPaths[field];
+        if (path.isRequired && !body[field]) {
+          validationErrors.push(`${field} is required`);
+        }
+      }
+
+      // Inferred regex validation
+      const inferredRegexPatterns = [
+        {
+          keyword: "email",
+          pattern: /^[\w.-]+@[\w.-]+\.\w{2,4}$/,
+          message: "Invalid email address",
+        },
+        {
+          keyword: "phone",
+          pattern: /^[6-9]\d{9}$/,
+          message: "Invalid phone number",
+        },
+        {
+          keyword: "url",
+          pattern: /^(https?|ftp):\/\/[^\s/$.?#].[^\s]*$/,
+          message: "Invalid URL",
+        },
+        {
+          keyword: "name",
+          pattern: /^[a-zA-Z ]{2,30}$/,
+          message: "Invalid name format",
+        },
+        {
+          keyword: "username",
+          pattern: /^[a-zA-Z0-9_]{3,20}$/,
+          message: "Invalid username format",
+        },
+      ];
+
+      for (const field in schemaPaths) {
+        const path = schemaPaths[field];
+        const value = body[field];
+        if (!value) continue;
+
+        const customRegexValidator = path.validators?.find((v) => v.type === "regexp");
+        if (customRegexValidator) {
+          if (!customRegexValidator.regexp.test(value)) {
+            validationErrors.push(`${field}: ${customRegexValidator.message || "Invalid format"}`);
+          }
+        } else {
+          for (const { keyword, pattern, message } of inferredRegexPatterns) {
+            if (field.toLowerCase().includes(keyword)) {
+              if (!pattern.test(value)) {
+                validationErrors.push(`${field}: ${message}`);
+              }
             }
           }
         }
       }
+
+      if (validationErrors.length > 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Validation Error",
+          errors: validationErrors,
+        });
+      }
+
+      const result = await DynamicModel.create(body);
+      return res.status(201).json({ success: true, message: "Registered successfully", result });
     }
-
-    // Return if validation failed
-    if (validationErrors.length > 0) {
-      return res.status(400).json({
-        success: false,
-        message: "Validation Error",
-        errors: validationErrors,
-      });
-    }
-
-    
-
-    // Create document
-    const result = await DynamicModel.create(req.body);
-    return res.status(201).json({ success: true, result });
 
   } catch (error) {
-    // Handle unique constraint
     if (error.code === 11000) {
       const duplicateField = Object.keys(error.keyPattern)[0];
       return res.status(400).json({
@@ -113,7 +130,7 @@ export const handlePostRequest = async ({ req, res, DynamicModel, schemaData }) 
 
     return res.status(500).json({
       success: false,
-      message: error.message || "Failed to create document.",
+      message: error.message || "Internal server error",
     });
   }
 };
