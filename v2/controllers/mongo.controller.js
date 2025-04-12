@@ -45,7 +45,7 @@ class ModalController {
         localURI,
       });
 
-      console.log(project)
+      // console.log(project)
 
       getDatabaseConnection(localURI);
       // getDatabaseConnection()

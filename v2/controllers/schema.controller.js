@@ -99,6 +99,7 @@ export const createSchema = asyncHandler(async (req, res) => {
     match: field.match || '',
     required: field.required,
     secure: field.secure,
+    role: field.role,
     secretKey: field.secretKey ? encryption(field.secretKey) : null
   }));
 

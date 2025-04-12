@@ -1,47 +1,72 @@
 import { decryptPassword, encryptPassword } from "../utils/secure.js";
+import inferredRegexPatterns from "../utils/regexPattern.js";
 
-export const handlePostRequest = async ({ req, res, DynamicModel, schemaData }) => {
+export const handlePostRequest = async ({
+  req,
+  res,
+  DynamicModel,
+  schemaData,
+}) => {
   try {
     const body = req.body;
-    const action = req.query.action || "register"; // use query param ?action=login
+    const action = req.query.action || "register";
 
     const schemaPaths = DynamicModel.schema.paths;
-
-    // Extract secure fields from schema
-    const secureFields = schemaData.schemaDefinition.filter(field => field.secure);
+    const secureFields = schemaData.schemaDefinition.filter(
+      (field) => field.secure
+    );
+    const roleField = schemaData.schemaDefinition.find(
+      (f) => f.name === "role"
+    );
 
     if (action === "login") {
-      console.log(schemaData.schemaDefinition)
-      // Find user by a unique identifier (e.g. email or username)
-      const identifierField = schemaData.schemaDefinition.find(f => f.unique);
-      console.log(identifierField)
+      // Login Flow
+      const identifierField = schemaData.schemaDefinition.find((f) => f.unique);
       if (!identifierField || !body[identifierField.name]) {
-        return res.status(400).json({ success: false, message: "Missing login identifier." });
+        return res
+          .status(400)
+          .json({ success: false, message: "Missing login identifier." });
       }
 
-      const user = await DynamicModel.findOne({ [identifierField.name]: body[identifierField.name] });
+      const user = await DynamicModel.findOne({
+        [identifierField.name]: body[identifierField.name],
+      });
       if (!user) {
-        return res.status(404).json({ success: false, message: "User not found." });
+        return res
+          .status(404)
+          .json({ success: false, message: "User not found." });
       }
 
-      // Decrypt and compare secure fields (e.g., password)
-      for (const { name, secure, secretKey } of secureFields) {
+      // Check secure fields
+      for (const { name, secretKey } of secureFields) {
         const storedEncrypted = user[name];
         const inputRaw = body[name];
-
         const decryptedStored = decryptPassword(storedEncrypted, secretKey);
-
         if (decryptedStored !== inputRaw) {
-          return res.status(401).json({ success: false, message: `${name} is incorrect.` });
+          return res
+            .status(401)
+            .json({ success: false, message: `${name} is incorrect.` });
         }
       }
 
-      return res.status(200).json({ success: true, message: "Login successful", user });
+      // Optional: Block access based on role
+      if (roleField && body.requiredRole && user.role !== body.requiredRole) {
+        return res
+          .status(403)
+          .json({
+            success: false,
+            message: "Access denied: insufficient role.",
+          });
+      }
 
+      return res
+        .status(200)
+        .json({ success: true, message: "Login successful", user });
     } else {
-      // Register logic
+      // Register Flow
 
-      for (const { name, secure, secretKey } of secureFields) {
+      // Encrypt secure fields
+      for (const { name, secretKey } of secureFields) {
         if (body[name]) {
           body[name] = encryptPassword(body[name], secretKey);
         }
@@ -57,51 +82,25 @@ export const handlePostRequest = async ({ req, res, DynamicModel, schemaData }) 
         }
       }
 
-      // Inferred regex validation
-      const inferredRegexPatterns = [
-        {
-          keyword: "email",
-          pattern: /^[\w.-]+@[\w.-]+\.\w{2,4}$/,
-          message: "Invalid email address",
-        },
-        {
-          keyword: "phone",
-          pattern: /^[6-9]\d{9}$/,
-          message: "Invalid phone number",
-        },
-        {
-          keyword: "url",
-          pattern: /^(https?|ftp):\/\/[^\s/$.?#].[^\s]*$/,
-          message: "Invalid URL",
-        },
-        {
-          keyword: "name",
-          pattern: /^[a-zA-Z ]{2,30}$/,
-          message: "Invalid name format",
-        },
-        {
-          keyword: "username",
-          pattern: /^[a-zA-Z0-9_]{3,20}$/,
-          message: "Invalid username format",
-        },
-      ];
 
       for (const field in schemaPaths) {
         const path = schemaPaths[field];
         const value = body[field];
         if (!value) continue;
 
-        const customRegexValidator = path.validators?.find((v) => v.type === "regexp");
+        const customRegexValidator = path.validators?.find(
+          (v) => v.type === "regexp"
+        );
         if (customRegexValidator) {
           if (!customRegexValidator.regexp.test(value)) {
-            validationErrors.push(`${field}: ${customRegexValidator.message || "Invalid format"}`);
+            validationErrors.push(
+              `${field}: ${customRegexValidator.message || "Invalid format"}`
+            );
           }
         } else {
           for (const { keyword, pattern, message } of inferredRegexPatterns) {
-            if (field.toLowerCase().includes(keyword)) {
-              if (!pattern.test(value)) {
-                validationErrors.push(`${field}: ${message}`);
-              }
+            if (field.toLowerCase().includes(keyword) && !pattern.test(value)) {
+              validationErrors.push(`${field}: ${message}`);
             }
           }
         }
@@ -115,10 +114,16 @@ export const handlePostRequest = async ({ req, res, DynamicModel, schemaData }) 
         });
       }
 
-      const result = await DynamicModel.create(body);
-      return res.status(201).json({ success: true, message: "Registered successfully", result });
-    }
+      // Set default role if not provided
+      if (roleField && !body.role) {
+        body.role = "user";
+      }
 
+      const result = await DynamicModel.create(body);
+      return res
+        .status(201)
+        .json({ success: true, message: "Registered successfully", result });
+    }
   } catch (error) {
     if (error.code === 11000) {
       const duplicateField = Object.keys(error.keyPattern)[0];
