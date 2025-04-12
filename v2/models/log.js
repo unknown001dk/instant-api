@@ -6,7 +6,7 @@ const logSchema = new mongoose.Schema({
   method: String,
   status: Number,
   ip: String,
-  createdAt: { type: Date, default: Date.now },
+  createdAt: { type: Date, default: Date.now() },
 },{
   timestamps: true
 })

@@ -100,6 +100,7 @@ export const createSchema = asyncHandler(async (req, res) => {
     required: field.required,
     secure: field.secure,
     role: field.role,
+    enum: field.enum,
     secretKey: field.secretKey ? encryption(field.secretKey) : null
   }));
 

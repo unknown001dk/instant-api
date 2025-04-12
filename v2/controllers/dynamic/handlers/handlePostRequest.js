@@ -51,12 +51,10 @@ export const handlePostRequest = async ({
 
       // Optional: Block access based on role
       if (roleField && body.requiredRole && user.role !== body.requiredRole) {
-        return res
-          .status(403)
-          .json({
-            success: false,
-            message: "Access denied: insufficient role.",
-          });
+        return res.status(403).json({
+          success: false,
+          message: "Access denied: insufficient role.",
+        });
       }
 
       return res
@@ -64,6 +62,22 @@ export const handlePostRequest = async ({
         .json({ success: true, message: "Login successful", user });
     } else {
       // Register Flow
+
+      // console.log(roleField)
+
+      // Validate the role field against the enum values
+      if (roleField && Array.isArray(roleField.enum) && body.role) {
+        console.log("Validating role...");
+        if (!roleField.enum.includes(body.role)) {
+          console.log("Invalid role value:", body.role);
+          return res.status(400).json({
+            success: false,
+            message: `Invalid role. Accepted values are: ${roleField.enum.join(
+              ", "
+            )}`,
+          });
+        }
+      }
 
       // Encrypt secure fields
       for (const { name, secretKey } of secureFields) {
@@ -81,7 +95,6 @@ export const handlePostRequest = async ({
           validationErrors.push(`${field} is required`);
         }
       }
-
 
       for (const field in schemaPaths) {
         const path = schemaPaths[field];

@@ -10,6 +10,8 @@ import morgan from 'morgan';
 import cors from 'cors';
 // import { handleMessage } from "./chatbot/botController.js";
 import botRouter from './routes/botRoute.js';
+import logRouter from "./routes/logRoute.js";
+
 
 dotenv.config();
 const app = express();
@@ -26,6 +28,7 @@ app.use("/api/v1/schema", schemaRouter);
 app.use("/api/v1/mongouri", MongoUriRouter);
 app.use("/api/v1/dynamic", dynamicRouter); // Dynamic schema with userId, schemaName, and optionally document ID
 app.use("/api/v1/bot", botRouter);
+app.use("/api/v1/log", logRouter);
 
 
 // middlewares
