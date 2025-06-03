@@ -1,4 +1,5 @@
 import Logs from "../models/log.js";
+import mongoose from "mongoose";
 
 export const handleAllRequest = async (req, res) => {
   try {
@@ -71,6 +72,51 @@ export const handleGetRequestByUserId = async (req, res) => {
     });
   } catch (error) {
     console.log(error);
+    res.status(500).json({
+      message: "Internal server error",
+      success: false,
+    });
+  }
+};
+
+export const getUserLogStats = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const objectUserId = mongoose.Types.ObjectId.isValid(userId)
+      ? new mongoose.Types.ObjectId(userId)
+      : userId;
+
+    const matchStage = { $match: { userId: objectUserId } };
+
+    const [methodStats, endpointStats, statusStats] = await Promise.all([
+      Logs.aggregate([
+        matchStage,
+        { $group: { _id: "$method", count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+      ]),
+      Logs.aggregate([
+        matchStage,
+        { $group: { _id: "$endpoint", count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+      ]),
+      Logs.aggregate([
+        matchStage,
+        { $group: { _id: "$status", count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+      ]),
+    ]);
+
+    res.status(200).json({
+      message: "User log statistics fetched successfully",
+      success: true,
+      data: {
+        methods: methodStats,
+        endpoints: endpointStats,
+        statusCodes: statusStats,
+      },
+    });
+  } catch (error) {
+    console.log("Error in getUserLogStats:", error);
     res.status(500).json({
       message: "Internal server error",
       success: false,

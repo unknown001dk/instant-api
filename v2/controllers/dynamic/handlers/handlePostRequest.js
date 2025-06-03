@@ -6,7 +6,9 @@ export const handlePostRequest = async ({
   res,
   DynamicModel,
   schemaData,
+  io
 }) => {
+  // console.log(io)
   try {
     const body = req.body;
     const action = req.query.action || "register";
@@ -20,7 +22,7 @@ export const handlePostRequest = async ({
     );
 
     if (action === "login") {
-      // Login Flow
+      // ================ Login Flow =================
       const identifierField = schemaData.schemaDefinition.find((f) => f.unique);
       if (!identifierField || !body[identifierField.name]) {
         return res
@@ -61,10 +63,7 @@ export const handlePostRequest = async ({
         .status(200)
         .json({ success: true, message: "Login successful", user });
     } else {
-      // Register Flow
-
-      // console.log(roleField)
-
+      // ================ Register Flow  =================
       // Validate the role field against the enum values
       if (roleField && Array.isArray(roleField.enum) && body.role) {
         console.log("Validating role...");
@@ -133,6 +132,25 @@ export const handlePostRequest = async ({
       }
 
       const result = await DynamicModel.create(body);
+
+      // ======== Realtime Emit ========
+      // let {userId, projectName} = req.params;
+      console.log(req.params)
+      let userId = req.params.id;
+      let projectName = req.params.projectName;
+      console.log(userId)
+      if (schemaData.realtimeEnabled && io && userId && projectName) {
+        const room = `${userId}_${projectName}`;
+        console.log(room)
+        const datae = io.to(room).emit("document:created", {
+          schema: schemaData.schemaName,
+          data: result,
+        });
+        console.log(datae)
+      } else {
+        console.log("Realtime not enabled or missing parameters");
+      }
+
       return res
         .status(201)
         .json({ success: true, message: "Registered successfully", result });

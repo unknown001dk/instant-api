@@ -17,6 +17,7 @@ const logger = pino({ timestamp: pino.stdTimeFunctions.isoTime });
 const performCRUDOperation = asyncHandler(async (req, res) => {
   const { schemaName, id, documentId, projectName } = req.params;
   const userId = decryption(id);
+
   if (!userId) {
     return res.status(401).json({ message: "User ID is Empty!." });
   }
@@ -57,7 +58,7 @@ const performCRUDOperation = asyncHandler(async (req, res) => {
 
     // Fetch the schema details
     const schemaData = await Schema.findOne({ userId, name: schemaName });
-
+    const isRealtime = schemaData.realtimeEnabled;
     if (!schemaData) {
       return res
         .status(404)
@@ -97,13 +98,31 @@ const performCRUDOperation = asyncHandler(async (req, res) => {
     let result;
     switch (req.method.toLowerCase()) {
       case "post":
-        return await handlePostRequest({ req, res, DynamicModel, schemaData });
+        return await handlePostRequest({
+          req,
+          res,
+          DynamicModel,
+          schemaData,
+          io: isRealtime ? req.io : null,
+        });
       case "get":
         return await handleGetRequest({ req, res, DynamicModel, documentId });
       case "put":
-        return await handlePutRequest({ req, res, DynamicModel, documentId });
+        return await handlePutRequest({
+          req,
+          res,
+          DynamicModel,
+          documentId,
+          schemaData,
+        });
       case "patch":
-        return await handlePatchRequest({ req, res, DynamicModel, documentId });
+        return await handlePatchRequest({
+          req,
+          res,
+          DynamicModel,
+          documentId,
+          schemaData,
+        });
       case "delete":
         return await handleDeleteRequest({ res, DynamicModel, documentId });
       default:

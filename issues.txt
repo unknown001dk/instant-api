@@ -1,0 +1,1 @@
+no token validate in barrier token - add new validation

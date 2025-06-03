@@ -1,38 +1,63 @@
-import mongoose from "mongoose";
+import { encryptPassword } from "../utils/secure.js";
+import inferredRegexPatterns from "../utils/regexPattern.js";
 
-export const handlePutRequest = async ({ req, res, DynamicModel, documentId }) => {
+export const handlePutRequest = async ({
+  req,
+  res,
+  DynamicModel,
+  documentId,
+  schemaData,
+}) => {
   try {
     const schemaPaths = DynamicModel.schema.paths;
     const updateData = req.body;
     const validationErrors = [];
 
+    const secureFields = schemaData.schemaDefinition.filter(
+      (field) => field.secure
+    );
+
+    // 🔐 Encrypt secure fields before validation
+    for (const { name, secretKey } of secureFields) {
+      if (updateData[name]) {
+        updateData[name] = encryptPassword(updateData[name], secretKey);
+      }
+    }
+
     // Validate fields based on schema
     for (const field in updateData) {
       const value = updateData[field];
       const path = schemaPaths[field];
+      if (!path) continue;
 
-      if (!path) continue; // Ignore unknown fields
-
-      // 1. Required field (only if user is updating it)
-      if (path.isRequired && (value === null || value === undefined || value === '')) {
+      // 1. Required field
+      if (
+        path.isRequired &&
+        (value === null || value === undefined || value === "")
+      ) {
         validationErrors.push(`${field} is required.`);
         continue;
       }
 
-      // 2. Regex validation (match)
+      // 2. Regex validation
       if (path.options?.match) {
         const regex = new RegExp(path.options.match);
         if (!regex.test(value)) {
           validationErrors.push(`${field} format is invalid.`);
         }
+      } else {
+        // Optional: Smart regex pattern detection
+        for (const { keyword, pattern, message } of inferredRegexPatterns) {
+          if (field.toLowerCase().includes(keyword) && !pattern.test(value)) {
+            validationErrors.push(`${field}: ${message}`);
+          }
+        }
       }
 
-      // 3. Type check (optional)
+      // 3. Type check
       if (path.instance === "Number" && isNaN(value)) {
         validationErrors.push(`${field} must be a number.`);
       }
-
-      // You can add minLength, maxLength, etc., here if needed
     }
 
     if (validationErrors.length > 0) {
@@ -43,19 +68,23 @@ export const handlePutRequest = async ({ req, res, DynamicModel, documentId }) =
       });
     }
 
-    const result = await DynamicModel.findByIdAndUpdate(documentId, updateData, {
-      new: true,
-      runValidators: true, // Let Mongoose also validate unique and schema rules
-    });
+    const result = await DynamicModel.findByIdAndUpdate(
+      documentId,
+      updateData,
+      {
+        new: true,
+        runValidators: true,
+      }
+    );
 
     if (!result) {
-      return res.status(404).json({ success: false, message: "Document not found." });
+      return res
+        .status(404)
+        .json({ success: false, message: "Document not found." });
     }
 
-    return res.json({ success: true, result });
-
+    return res.json({ success: true, message: "Updated succesfully", result });
   } catch (error) {
-    // Handle MongoDB duplicate key error (unique constraint)
     if (error.code === 11000) {
       const duplicateField = Object.keys(error.keyPattern)[0];
       return res.status(400).json({

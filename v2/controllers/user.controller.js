@@ -8,12 +8,12 @@ import { logActivity } from "./activity.controller.js";
 class UserController {
   // Register a new user
   register = asyncHandler(async (req, res) => {
-    console.log(req.body)
+    console.log(req.body);
     const { email, password, username } = req.body;
 
     const user = await User.findOne({ email });
     if (user) {
-      return res.json({
+      return res.status(409).json({
         message: "Email already used",
         success: false,
       })
@@ -30,7 +30,8 @@ class UserController {
       console.log(newUser)
       
       await newUser.save();
-      logActivity(user._id, "User Register");
+      // console.log("saved data", newUser)
+      // logActivity(user._id, "User Register");
       return res.status(201).json({
         message: "User registered successfully",
         success: true,
@@ -59,7 +60,6 @@ login = asyncHandler(async (req, res) => {
   try {
     const hash = user.password;
     const match = await verifyPassword(hash, password);
-
     if (!match) {
       return res.status(400).json({
         message: "Invalid password",

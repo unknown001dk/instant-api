@@ -18,7 +18,11 @@ const schemaModel = new mongoose.Schema(
     projectName: {
       type: String,
       required: true,
-    }
+    },
+    realtimeEnabled: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
     timestamps: true,

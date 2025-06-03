@@ -74,7 +74,7 @@ export const getDynamicModel = async (name, userId, projectName) => {
 
 // Create Schema
 export const createSchema = asyncHandler(async (req, res) => {
-  const { name, userId, fields, projectName } = req.body;
+  const { name, userId, fields, projectName, realtimeEnabled } = req.body;
 
   if (!name || !userId || !fields || !projectName) {
     return res.status(400).json({
@@ -108,6 +108,7 @@ export const createSchema = asyncHandler(async (req, res) => {
     name,
     userId,
     projectName,
+    realtimeEnabled,
     schemaDefinition: updatedFields,
   });
 

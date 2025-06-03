@@ -1,0 +1,153 @@
+app-dynamic-api-frontend/
+│
+├── public/                   # Static assets (logo, favicon)
+├── src/
+│   ├── components/           # Reusable UI components
+│   │   ├── Navbar.tsx
+│   │   ├── Footer.tsx
+│   │   ├── AuthForm.tsx
+│   │   ├── MongoUriInput.tsx
+│   │   ├── SchemaInputForm.tsx
+│   │   ├── ApiResultCard.tsx
+│   │   └── CodeBlock.tsx
+│   │
+│   ├── pages/                # Next.js routes
+│   │   ├── index.tsx         # Home page
+│   │   ├── login.tsx
+│   │   ├── register.tsx
+│   │   ├── dashboard.tsx
+│   │   ├── docs.tsx
+│   │   └── profile.tsx
+│   │
+│   ├── layouts/              # Layouts (e.g., with navbar/footer)
+│   │   └── DefaultLayout.tsx
+│   │
+│   ├── styles/               # Tailwind or CSS Modules
+│   │   └── globals.css
+│   │
+│   ├── context/              # Auth context or Zustand store
+│   │   └── AuthContext.tsx
+│   │
+│   ├── hooks/                # Custom React hooks
+│   │   └── useAuth.ts
+│   │
+│   ├── utils/                # Utility functions
+│   │   ├── validators.ts
+│   │   └── api.ts
+│   │
+│   ├── types/                # TypeScript interfaces
+│   │   └── index.ts
+│   │
+│   └── middleware.ts         # For auth protection
+│
+├── .env.local                # API base URL, etc.
+├── tailwind.config.js
+├── tsconfig.json
+└── next.config.js
+
+
+
+=====================    plans     ===========================
+
+🌐 Pages Breakdown (with Features)
+🔐 login.tsx & register.tsx
+🔄 Reusable <AuthForm />
+
+🔐 JWT-based login (fetch -> set cookie)
+
+✅ Zod + React Hook Form validation
+
+🏠 dashboard.tsx
+✅ Protected route (redirect if not logged in)
+
+🔗 Mongo URI form
+
+📄 Schema input with JSON preview
+
+🔘 "Generate API" button
+
+📬 Result section with base API URL + Docs button
+
+📄 docs.tsx
+🧠 Dynamically rendered from schema
+
+Code blocks (GET, POST, etc.)
+
+Copy buttons
+
+Section toggles for each endpoint
+
+👤 profile.tsx
+👨‍💼 Edit name/email
+
+🔐 Change Mongo URI
+
+🔁 Optional: password reset
+
+🌈 Styling & UI
+✅ Tailwind CSS for consistent design
+
+🌙 Dark mode support (optional)
+
+🎨 Green gradient buttons + modern UI
+
+📱 Fully responsive (mobile, tablet, desktop)
+
+🧩 Framer Motion for animation
+
+🧠 Logic to Handle
+ Auth token saved in cookie (from backend)
+
+ Axios/FETCH with token in Authorization
+
+ On successful schema submission → show base API URL
+
+ JSON validator for schema field
+
+ Toasts for all success/error messages
+
+🔒 Auth Middleware (Optional in middleware.ts)
+ts
+Copy
+Edit
+import { NextResponse } from 'next/server';
+
+export function middleware(req: NextRequest) {
+  const token = req.cookies.get('token');
+  if (!token && req.nextUrl.pathname.startsWith('/dashboard')) {
+    return NextResponse.redirect(new URL('/login', req.url));
+  }
+  return NextResponse.next();
+}
+🔗 API Integration Plan
+POST /api/auth/register — Register user
+
+POST /api/auth/login — Login & receive JWT
+
+POST /api/generate — Mongo URI + Schema → return URL
+
+GET /api/user/schema — Fetch schema
+
+GET /api/user/profile — Get profile info
+
+✅ Final Touches for Production
+ SEO tags with next/head
+
+ Loading states for async operations
+
+ 404 & error pages (pages/404.tsx)
+
+ Lazy loading components
+
+ CI/CD ready with Vercel or Netlify
+
+ .env.local with NEXT_PUBLIC_API_BASE_URL
+
+💬 Bonus Features (If needed later)
+🎁 User dashboard with API usage analytics
+
+📄 Export schema as JSON
+
+📦 Pre-built schema templates (e.g., Users, Products)
+
+🛡️ Role-based auth
