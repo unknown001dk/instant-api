@@ -1,233 +1,94 @@
-// import mongoose from "mongoose";
-// import pino from "pino";
-
-// const logger = pino({ timestamp: pino.stdTimeFunctions.isoTime });
-
-// export const handleGetRequest = async ({
-//   req,
-//   res,
-//   DynamicModel,
-//   documentId,
-// }) => {
-//   try {
-//     const { filter, select, sort, page = 1, limit = 10 } = req.query;
-
-//     const restrictedFields = ["password", "ssn", "creditCardNumber"];
-
-//     let queryFilter = {};
-//     if (filter) {
-//       try {
-//         queryFilter = JSON.parse(filter);
-
-//         const hasRestrictedFilter = restrictedFields.some((field) =>
-//           Object.keys(queryFilter).includes(field)
-//         );
-//         if (hasRestrictedFilter) {
-//           logger.warn(`Restricted filter field used: ${filter}`);
-//           return res.status(400).json({
-//             success: false,
-//             message: "Filtering on sensitive fields is not allowed.",
-//           });
-//         }
-
-//         const allowedOperators = [
-//           "$gt",
-//           "$gte",
-//           "$lt",
-//           "$lte",
-//           "$in",
-//           "$nin",
-//           "$regex",
-//           "$ne",
-//           "$or",
-//           "$and",
-//           "$exists",
-//           "$options",
-//           "$not",
-//           "$nor",
-//         ];
-//         const operatorMatches = JSON.stringify(queryFilter).match(/\$\w+/g);
-//         if (operatorMatches) {
-//           const hasInvalidOperator = operatorMatches.some(
-//             (op) => !allowedOperators.includes(op)
-//           );
-//           if (hasInvalidOperator) {
-//             logger.warn(`Invalid MongoDB operator in filter: ${filter}`);
-//             return res.status(400).json({
-//               success: false,
-//               message: "Unsupported query operator in filter.",
-//             });
-//           }
-//         }
-//       } catch (parseErr) {
-//         return res.status(400).json({
-//           success: false,
-//           message: "Invalid filter format. Must be a valid JSON string.",
-//         });
-//       }
-//     }
-
-//     if (select && restrictedFields.some((field) => select.includes(field))) {
-//       logger.warn(`Restricted field in select: ${select}`);
-//       return res.status(400).json({
-//         success: false,
-//         message: "Selection of sensitive fields is not allowed.",
-//       });
-//     }
-
-//     const pageNum = Math.max(parseInt(page, 10), 1);
-//     const limitNum = Math.max(parseInt(limit, 10), 1);
-//     const skip = (pageNum - 1) * limitNum;
-
-//     const fieldsToSelect = select
-//       ? select
-//           .split(",")
-//           .filter((f) => !restrictedFields.includes(f.trim()))
-//           .join(" ")
-//       : "-password";
-
-//     // Automatically detect refs from schema paths
-//     const refFields = Object.entries(DynamicModel.schema.paths)
-//       .filter(([key, path]) => path.options?.ref)
-//       .map(([key]) => key);
- 
-//     const populateFields = refFields.join(" ");
-
-//     const query = documentId
-//       ? DynamicModel.findById(documentId).select("-password")
-//       : DynamicModel.find(queryFilter)
-//           .select(fieldsToSelect)
-//           .sort(sort || "-createdAt")
-//           .skip(skip)
-//           .limit(limitNum);
-
-//     if (populateFields) {
-//       query.populate(populateFields);
-//     }
-
-//     const result = await query;
-
-//     const totalCount = documentId
-//       ? result
-//         ? 1
-//         : 0
-//       : await DynamicModel.countDocuments(queryFilter);
-
-//     if (!result || (Array.isArray(result) && result.length === 0)) {
-//       return res.status(404).json({
-//         success: false,
-//         message: documentId
-//           ? `Document with ID ${documentId} not found.`
-//           : "No records found matching the query.",
-//       });
-//     }
-
-//     return res.json({
-//       success: true,
-//       totalRecords: totalCount,
-//       currentPage: pageNum,
-//       pageSize: limitNum,
-//       data: result,
-//     });
-//   } catch (error) {
-//     logger.error({ error: error.message }, "Error during GET operation.");
-//     return res.status(500).json({
-//       success: false,
-//       message: "Internal server error occurred.",
-//     });
-//   }
-// };
-
-
-import mongoose from "mongoose";
 import pino from "pino";
 
 const logger = pino({ timestamp: pino.stdTimeFunctions.isoTime });
 
+/**
+ * Handles GET requests for dynamic models with support for:
+ * - Role-based permissions
+ * - Query filters and projections
+ * - Pagination
+ * - Reference population
+ */
 export const handleGetRequest = async ({ req, res, DynamicModel, documentId }) => {
   try {
     const { filter, select, sort, page = 1, limit = 10 } = req.query;
-    const { permissions } = req.permission; // Fetch permissions from middleware
-    const restrictedFields = ["password", "ssn", "creditCardNumber"]; // Sensitive fields
+    const { permissions } = req.permission || {};
+    const restrictedFields = ["password", "ssn", "creditCardNumber"];
 
-    // Check if the user has view permissions
-    if (!permissions.view) {
+    // Authorization check
+    if (!permissions?.view) {
       return res.status(403).json({
         success: false,
         message: "You do not have permission to view this resource.",
       });
     }
 
-    // Process field selection based on permissions
-    const allowedFields = permissions.fields.view || [];
+    // Build allowed field selection string
+    const allowedFields = permissions.fields?.view || [];
     const fieldsToSelect = select
       ? select
           .split(",")
-          .filter((field) => allowedFields.includes(field.trim()) || allowedFields.includes("*"))
+          .filter(field => allowedFields.includes(field.trim()) || allowedFields.includes("*"))
           .join(" ")
       : allowedFields.includes("*")
-      ? "" // Empty means select all fields
-      : allowedFields.join(" ") || "-password"; // Default: exclude sensitive fields
+      ? ""
+      : allowedFields.join(" ") || "-password";
 
-    // Build query filters
+    // Parse and validate query filters
     let queryFilter = {};
     if (filter) {
       try {
         queryFilter = JSON.parse(filter);
 
-        // Check if filter includes restricted fields
-        const hasRestrictedFilter = restrictedFields.some((field) =>
-          Object.keys(queryFilter).includes(field)
+        // Restrict filter usage on sensitive fields
+        const hasRestrictedField = Object.keys(queryFilter).some(field =>
+          restrictedFields.includes(field)
         );
-        if (hasRestrictedFilter) {
-          logger.warn(`Restricted filter field used: ${filter}`);
+        if (hasRestrictedField) {
+          logger.warn(`Blocked filter using restricted field: ${filter}`);
           return res.status(400).json({
             success: false,
             message: "Filtering on sensitive fields is not allowed.",
           });
         }
 
-        // Validate allowed MongoDB operators
+        // Validate supported MongoDB operators
         const allowedOperators = [
           "$gt", "$gte", "$lt", "$lte", "$in", "$nin", "$regex", "$ne",
-          "$or", "$and", "$exists", "$options", "$not", "$nor",
+          "$or", "$and", "$exists", "$options", "$not", "$nor"
         ];
-        const operatorMatches = JSON.stringify(queryFilter).match(/\$\w+/g);
-        if (operatorMatches) {
-          const hasInvalidOperator = operatorMatches.some(
-            (op) => !allowedOperators.includes(op)
-          );
-          if (hasInvalidOperator) {
-            logger.warn(`Invalid MongoDB operator in filter: ${filter}`);
-            return res.status(400).json({
-              success: false,
-              message: "Unsupported query operator in filter.",
-            });
-          }
+        const foundOperators = JSON.stringify(queryFilter).match(/\$\w+/g);
+        if (foundOperators?.some(op => !allowedOperators.includes(op))) {
+          logger.warn(`Invalid MongoDB operator used: ${filter}`);
+          return res.status(400).json({
+            success: false,
+            message: "Unsupported query operator in filter.",
+          });
         }
-      } catch (parseErr) {
+
+      } catch {
         return res.status(400).json({
           success: false,
-          message: "Invalid filter format. Must be a valid JSON string.",
+          message: "Invalid filter format. Filter must be a valid JSON string.",
         });
       }
     }
 
-    // Restrict sensitive fields in 'select'
-    if (select && restrictedFields.some((field) => select.includes(field))) {
-      logger.warn(`Restricted field in select: ${select}`);
+    // Restrict selection of sensitive fields
+    if (select && restrictedFields.some(field => select.includes(field))) {
+      logger.warn(`Attempted selection of restricted field: ${select}`);
       return res.status(400).json({
         success: false,
         message: "Selection of sensitive fields is not allowed.",
       });
     }
 
-    // Pagination setup
+    // Setup pagination
     const pageNum = Math.max(parseInt(page, 10), 1);
     const limitNum = Math.max(parseInt(limit, 10), 1);
     const skip = (pageNum - 1) * limitNum;
 
-    // Build the query
+    // Build Mongoose query
     const query = documentId
       ? DynamicModel.findById(documentId).select(fieldsToSelect)
       : DynamicModel.find(queryFilter)
@@ -236,37 +97,31 @@ export const handleGetRequest = async ({ req, res, DynamicModel, documentId }) =
           .skip(skip)
           .limit(limitNum);
 
-    // Automatically detect and populate references in schema
-    const refFields = Object.entries(DynamicModel.schema.paths)
-      .filter(([key, path]) => path.options?.ref)
-      .map(([key]) => key);
-
-    const populateFields = refFields.join(" ");
+    // Automatically populate referenced fields
+    const populateFields = Object.entries(DynamicModel.schema.paths)
+      .filter(([_, path]) => path.options?.ref)
+      .map(([key]) => key)
+      .join(" ");
     if (populateFields) {
       query.populate(populateFields);
     }
 
-    // Execute the query
+    // Execute query
     const result = await query;
-
-    // Count total documents for pagination
     const totalCount = documentId
-      ? result
-        ? 1
-        : 0
+      ? (result ? 1 : 0)
       : await DynamicModel.countDocuments(queryFilter);
 
-    // Handle no results
     if (!result || (Array.isArray(result) && result.length === 0)) {
       return res.status(404).json({
         success: false,
         message: documentId
-          ? `Document with ID ${documentId} not found.`
-          : "No records found matching the query.",
+          ? `Document with ID '${documentId}' not found.`
+          : "No records found matching the criteria.",
       });
     }
 
-    // Return the data with metadata
+    // Success response
     return res.json({
       success: true,
       totalRecords: totalCount,
@@ -275,8 +130,7 @@ export const handleGetRequest = async ({ req, res, DynamicModel, documentId }) =
       data: result,
     });
   } catch (error) {
-    // Handle errors
-    logger.error({ error: error.message }, "Error during GET operation.");
+    logger.error({ error: error.message }, "Error during GET operation");
     return res.status(500).json({
       success: false,
       message: "Internal server error occurred.",

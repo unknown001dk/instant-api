@@ -1,6 +1,9 @@
 import { decryptPassword, encryptPassword } from "../utils/secure.js";
 import inferredRegexPatterns from "../utils/regexPattern.js";
 
+/**
+ * Handles POST requests: registration and login based on query.action
+ */
 export const handlePostRequest = async ({
   req,
   res,
@@ -21,13 +24,13 @@ export const handlePostRequest = async ({
       (f) => f.name === "role"
     );
 
+    // ================ Login Flow =================
     if (action === "login") {
-      // ================ Login Flow =================
       const identifierField = schemaData.schemaDefinition.find((f) => f.unique);
       if (!identifierField || !body[identifierField.name]) {
         return res
           .status(400)
-          .json({ success: false, message: "Missing login identifier." });
+          .json({ success: false, message: "Missing login identifier.we must need the unique one fileds." });
       }
 
       const user = await DynamicModel.findOne({
@@ -41,6 +44,7 @@ export const handlePostRequest = async ({
 
       // Check secure fields
       for (const { name, secretKey } of secureFields) {
+        // console.log("secretKey", secretKey)
         const storedEncrypted = user[name];
         const inputRaw = body[name];
         const decryptedStored = decryptPassword(storedEncrypted, secretKey);
@@ -77,7 +81,6 @@ export const handlePostRequest = async ({
           });
         }
       }
-
       // Encrypt secure fields
       for (const { name, secretKey } of secureFields) {
         if (body[name]) {
@@ -92,6 +95,7 @@ export const handlePostRequest = async ({
         const path = schemaPaths[field];
         if (path.isRequired && !body[field]) {
           validationErrors.push(`${field} is required`);
+          // return false;
         }
       }
 

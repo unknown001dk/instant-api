@@ -8,7 +8,7 @@ import { logActivity } from "./activity.controller.js";
 class UserController {
   // Register a new user
   register = asyncHandler(async (req, res) => {
-    console.log(req.body);
+    // console.log(req.body);
     const { email, password, username } = req.body;
 
     const user = await User.findOne({ email });
@@ -26,8 +26,6 @@ class UserController {
         password: hash,
         username,
       });
-
-      console.log(newUser)
       
       await newUser.save();
       // console.log("saved data", newUser)

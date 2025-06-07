@@ -50,7 +50,7 @@ const botController = {
 
           await session.save();
           return res.json({
-            reply: `✅ Connected to MongoDB!\n\nSuggested schema:\n${JSON.stringify(
+            reply: `Connected to MongoDB!\n\nSuggested schema:\n${JSON.stringify(
               session.data.schema,
               null,
               2
@@ -58,7 +58,7 @@ const botController = {
           });
         } catch (err) {
           return res.json({
-            reply: "❌ MongoDB connection failed. Please check your URI.",
+            reply: "MongoDB connection failed. Please check your URI.",
           });
         }
 
@@ -69,7 +69,7 @@ const botController = {
           session.state = "EDIT_SCHEMA";
           return res.json({
             reply:
-              '✏️ Send your schema as JSON array (e.g. [{"field":"name","type":"String"}])',
+              'Send your schema as JSON array (e.g. [{"field":"name","type":"String"}])',
           });
         }
         break;
@@ -80,7 +80,7 @@ const botController = {
           session.data.schema = parsed;
           session.state = "SAVE_SCHEMA";
         } catch {
-          return res.json({ reply: "⚠️ Invalid JSON format. Try again." });
+          return res.json({ reply: "Invalid JSON format. Try again." });
         }
         break;
 
@@ -96,12 +96,12 @@ const botController = {
 
         await session.deleteOne();
         return res.json({
-          reply: `🎉 All done! Your auto-generated API URL is:\n${finalUrl}`,
+          reply: `All done! Your auto-generated API URL is:\n${finalUrl}`,
         });
     }
 
     await session.save();
-    res.json({ reply: '✅ Noted. Type "next" to continue.' });
+    res.json({ reply: 'Noted. Type "next" to continue.' });
   },
 };
 

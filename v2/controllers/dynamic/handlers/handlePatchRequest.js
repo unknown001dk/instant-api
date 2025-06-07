@@ -2,52 +2,70 @@ import mongoose from "mongoose";
 import { encryptPassword } from "../utils/secure.js";
 import inferredRegexPatterns from "../utils/regexPattern.js";
 
-export const handlePatchRequest = async ({ req, res, DynamicModel, documentId, schemaData }) => {
+/**
+ * PATCH controller to update a document by ID with validation and encryption support.
+ *
+ * @param {Object} params
+ * @param {Object} params.req - Express request object
+ * @param {Object} params.res - Express response object
+ * @param {Object} params.DynamicModel - Mongoose model instance
+ * @param {string} params.documentId - ID of the document to update
+ * @param {Object} params.schemaData - Custom schema metadata with secure field config
+ */
+export const handlePatchRequest = async ({
+  req,
+  res,
+  DynamicModel,
+  documentId,
+  schemaData,
+}) => {
   try {
-    if (!schemaData || !schemaData.schemaDefinition) {
+    // Validate schema data
+    if (!schemaData?.schemaDefinition) {
       return res.status(500).json({
         success: false,
-        message: "Missing schema definition.",
+        message: "Schema definition is missing. Update cannot proceed.",
       });
     }
 
-    const schemaPaths = DynamicModel.schema.paths;
     const updateData = req.body;
+    const schemaPaths = DynamicModel.schema.paths;
+    const secureFields = schemaData.schemaDefinition.filter((f) => f.secure);
     const validationErrors = [];
 
-    const secureFields = schemaData.schemaDefinition.filter(f => f.secure);
-
+    // Validate fields in the update payload
     for (const field in updateData) {
-      const path = schemaPaths[field];
       const value = updateData[field];
+      const schemaField = schemaPaths[field];
+      if (!schemaField) continue;
 
-      if (!path) continue;
-
-      // Required validation (only if field is provided)
-      if (path.isRequired && (value === undefined || value === "")) {
+      // Validate required (if provided)
+      if (schemaField.isRequired && (value === undefined || value === "")) {
         validationErrors.push(`${field} is required.`);
       }
 
-      // Regex (from schema)
-      if (path.options?.match && typeof value === "string") {
-        const regex = path.options.match instanceof RegExp
-          ? path.options.match
-          : new RegExp(path.options.match);
+      // Schema-defined regex
+      const definedRegex = schemaField.options?.match;
+      if (definedRegex && typeof value === "string") {
+        const regex =
+          definedRegex instanceof RegExp
+            ? definedRegex
+            : new RegExp(definedRegex);
         if (!regex.test(value)) {
-          validationErrors.push(`${field} is invalid format.`);
+          validationErrors.push(`${field} does not match expected format.`);
         }
       }
 
-      // Regex fallback (inferred patterns)
-      const inferred = inferredRegexPatterns.find(r =>
+      // Inferred regex pattern fallback (based on keyword match)
+      const inferred = inferredRegexPatterns.find((r) =>
         field.toLowerCase().includes(r.keyword)
       );
       if (inferred && !inferred.pattern.test(value)) {
         validationErrors.push(`${field}: ${inferred.message}`);
       }
 
-      // Secure field encryption
-      const secureField = secureFields.find(f => f.name === field);
+      // Encrypt secure fields
+      const secureField = secureFields.find((f) => f.name === field);
       if (secureField && value) {
         updateData[field] = encryptPassword(value, secureField.secretKey);
       }
@@ -56,34 +74,52 @@ export const handlePatchRequest = async ({ req, res, DynamicModel, documentId, s
     if (validationErrors.length > 0) {
       return res.status(400).json({
         success: false,
-        message: "Validation Error",
+        message: "Validation errors encountered.",
         errors: validationErrors,
       });
     }
 
-    const result = await DynamicModel.findByIdAndUpdate(documentId, updateData, {
+    // Validate document ID
+    if (!mongoose.Types.ObjectId.isValid(documentId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid document ID format.",
+      });
+    }
+
+    // Attempt to update the document
+    const updatedDoc = await DynamicModel.findByIdAndUpdate(documentId, updateData, {
       new: true,
       runValidators: true,
     });
 
-    if (!result) {
-      return res.status(404).json({ success: false, message: "Document not found." });
+    if (!updatedDoc) {
+      return res.status(404).json({
+        success: false,
+        message: `Document with ID ${documentId} not found.`,
+      });
     }
 
-    return res.json({ success: true, result });
+    return res.status(200).json({
+      success: true,
+      message: "Document updated successfully.",
+      result: updatedDoc,
+    });
 
   } catch (error) {
+    // Handle duplicate key errors
     if (error.code === 11000) {
       const duplicateField = Object.keys(error.keyPattern)[0];
       return res.status(400).json({
         success: false,
-        message: `${duplicateField} must be unique. Duplicate value found.`,
+        message: `Duplicate entry: ${duplicateField} must be unique.`,
       });
     }
 
+    // Handle other server errors
     return res.status(500).json({
       success: false,
-      message: error.message || "Failed to update document.",
+      message: error.message || "Unexpected server error during update.",
     });
   }
 };

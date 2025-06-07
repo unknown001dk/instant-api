@@ -3,21 +3,20 @@ import mongoose from "mongoose";
 
 export const handleAllRequest = async (req, res) => {
   try {
-    const logs = await Logs.find({}).sort({ createdAt: -1 });
+    const logs = await Logs.find().sort({ createdAt: -1 });
     if (!logs.length) {
       return res.status(404).json({
         message: "No logs found",
         success: false,
       });
     }
-    res.status(200).json({
+    return res.status(200).json({
       message: "Logs fetched successfully",
       success: true,
       data: logs,
     });
-    
   } catch (error) {
-    console.log(error);
+    console.error("Error fetching all logs:", error);
     return res.status(500).json({
       message: "Internal server error",
       success: false,
@@ -30,28 +29,36 @@ export const handleGetRequestByUserId = async (req, res) => {
     const { userId } = req.params;
     const { filter, sort, select, limit: limitParam, page: pageParam, search } = req.query;
 
-    // Parse limit and page for pagination
-    const limit = parseInt(limitParam) || 10;
-    const page = parseInt(pageParam) || 1;
+    const limit = Math.max(parseInt(limitParam, 10) || 10, 1);
+    const page = Math.max(parseInt(pageParam, 10) || 1, 1);
     const skip = (page - 1) * limit;
 
     const query = { userId };
 
     if (filter) {
-      const filterConditions = JSON.parse(filter); 
-      Object.assign(query, filterConditions); 
+      try {
+        const filterConditions = JSON.parse(filter);
+        Object.assign(query, filterConditions);
+      } catch {
+        return res.status(400).json({
+          message: "Invalid filter format. Must be valid JSON.",
+          success: false,
+        });
+      }
     }
 
-    // Add search functionality (partial match for specific fields like endpoint)
     if (search) {
-      query.endpoint = { $regex: search, $options: "i" }; 
+      query.endpoint = { $regex: search, $options: "i" };
     }
 
-    const logs = await Logs.find(query)
-      .sort(sort || { createdAt: -1 }) 
-      .limit(limit) 
-      .skip(skip) 
-      .select(select || "-__v"); 
+    const [logs, totalItems] = await Promise.all([
+      Logs.find(query)
+        .sort(sort || { createdAt: -1 })
+        .limit(limit)
+        .skip(skip)
+        .select(select || "-__v"),
+      Logs.countDocuments(query),
+    ]);
 
     if (!logs.length) {
       return res.status(404).json({
@@ -60,19 +67,19 @@ export const handleGetRequestByUserId = async (req, res) => {
       });
     }
 
-    res.status(200).json({
+    return res.status(200).json({
       message: "Logs fetched successfully",
       success: true,
       pagination: {
-        totalItems: await Logs.countDocuments(query),
+        totalItems,
         currentPage: page,
-        totalPages: Math.ceil(await Logs.countDocuments(query) / limit),
+        totalPages: Math.ceil(totalItems / limit),
       },
       data: logs,
     });
   } catch (error) {
-    console.log(error);
-    res.status(500).json({
+    console.error("Error fetching logs by userId:", error);
+    return res.status(500).json({
       message: "Internal server error",
       success: false,
     });
@@ -106,7 +113,7 @@ export const getUserLogStats = async (req, res) => {
       ]),
     ]);
 
-    res.status(200).json({
+    return res.status(200).json({
       message: "User log statistics fetched successfully",
       success: true,
       data: {
@@ -116,8 +123,8 @@ export const getUserLogStats = async (req, res) => {
       },
     });
   } catch (error) {
-    console.log("Error in getUserLogStats:", error);
-    res.status(500).json({
+    console.error("Error in getUserLogStats:", error);
+    return res.status(500).json({
       message: "Internal server error",
       success: false,
     });

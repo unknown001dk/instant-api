@@ -1,19 +1,30 @@
 import mongoose from "mongoose";
 import pino from "pino";
 import asyncHandler from "express-async-handler";
+
+// schemas
 import Schema from "../../models/schema.model.js";
 import MongoUri from "../../models/mongo.model.js";
+
+// utillities
 import { decryption } from "../../utils/encrypt.js";
-import { handleGetRequest } from "./handlers/handleGetRequest.js";
 import { validateSchemaDefinition } from "./utils/validateSchemaDefnition.js";
-import { handlePostRequest } from "./handlers/handlePostRequest.js";
-import { handlePutRequest } from "./handlers/handlePutRequest.js";
-import { handleDeleteRequest } from "./handlers/handleDeleteRequest.js";
-import getDatabaseConnection from "./db/getDatabaseConnection.js";
-import { handlePatchRequest } from "./handlers/handlePatchRequest.js";
+import getDatabaseConnection from "../../utils/connection.js";
+
+// handlers
+import {
+  handleGetRequest,
+  handleDeleteRequest,
+  handlePostRequest,
+  handlePatchRequest,
+  handlePutRequest,
+} from "./handlers/index.js";
 
 const logger = pino({ timestamp: pino.stdTimeFunctions.isoTime });
 
+/**
+ * @desc Handles all dynamic CRUD operations for user-defined schemas
+ */
 const performCRUDOperation = asyncHandler(async (req, res) => {
   const { schemaName, id, documentId, projectName } = req.params;
   const userId = decryption(id);

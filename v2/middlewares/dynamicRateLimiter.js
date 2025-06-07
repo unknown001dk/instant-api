@@ -86,7 +86,7 @@ const dynamicRateLimiter = async (req, res, next) => {
             enterprise: 5000
         };
 
-        const maxRequests = planLimits[user.plan] || 50000;
+        const maxRequests = planLimits[user.plan] || 500;
         console.log(`Applying rate limit of ${maxRequests} requests/day for user ${userId} (${user.plan} plan)`);
 
         // Create and cache new rate limiter
